@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+
+if [[ ! $@ ]]; then
+    python -m cudaenvs --help
+else
+    python -m cudaenvs $@
+fi
