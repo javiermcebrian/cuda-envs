@@ -6,6 +6,7 @@ import click
 def template(env_name):
     click.echo('template')
 
+
 @click.command()
 @click.option('--env-name', '-n', type=str, default=None)
 def build(env_name):

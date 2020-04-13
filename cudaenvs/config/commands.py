@@ -3,26 +3,28 @@ import json
 from pathlib import Path
 from typing import Union
 
-from ..placeholders import Zoo
+from ..environment import Environment
 
 
 @click.command()
-@click.option('--items_fn', '-i', type=Path, required=True)
-def update(items_fn):
-    """
-    read files, check default keys, update default, check envs keys, check completeness with new default, update file
-    # Keys from: user, volume, environment
-    """
-    click.echo('update')
+@click.option('--updates_fn', '-i', type=Path, required=True)
+def update(updates_fn):
+    Environment().update(updates_fn=updates_fn)
+    click.echo('Config updated')
 
 
 @click.command()
 @click.option('--default', '-d', is_flag=True)
 @click.option('--keys', '-k', multiple=True, type=click.STRING, default=None)
 def remove(default, keys):
-    click.echo(Zoo().remove(is_default=default, keys=keys))
+    click.echo(Environment().remove(is_default=default, keys=keys))
+
+
+@click.command()
+def list():
+    click.echo(Environment().list())
 
 
 @click.command()
 def dump():
-    click.echo(Zoo().dump())
+    click.echo(Environment().dump())
