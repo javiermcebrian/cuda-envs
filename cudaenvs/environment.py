@@ -12,7 +12,7 @@ class Environment(object):
         self.cudaenvs_fn = Path(__file__).parent / 'resources/cudaenvs.cfg'
         self.__keys_main = ['user', 'image_name', 'cuda_tag', 'context', 'volumes']
         self.__keys_user = ['user_name', 'user_id', 'group_name', 'group_id']
-        self.__keys_volume = ['host', 'container']
+        self.__keys_volume = ['host', 'container', 'permissions']
     
     def __read_cudaenvs(self):
         with self.cudaenvs_fn.open('r') as f:
@@ -22,11 +22,18 @@ class Environment(object):
         with self.cudaenvs_fn.open('w') as f:
             json.dump(cudaenvs, f, indent=4)
     
-    def __validate_params(self, env: dict):
+    def __validate_allowed(self, env: dict):
         assert all([k in self.__keys_main for k in env.keys()]), f'Bad keys in main level of {env}'
         assert all([k in self.__keys_user for k in env.get('user', {}).keys()]), f'Bad keys in user level of {env}'
         assert all([k in self.__keys_volume for volume in env.get('volumes', []) for k in volume.keys()]), f'Bad keys in volumes level of {env}'
     
+    def __validate_completeness(self, env: dict):
+        assert env['user'].keys() == self.__keys_user, 'Missing user params'
+        assert env['image_name'] is not None, 'Missing image_name'
+        assert env['cuda_tag'] is not None, 'Missing cuda_tag'
+        assert env['context'] is not None, 'Missing context'
+        assert all([k in v.keys() for v in env['volumes'] for k in self.__keys_volume[:-1]]), 'Missing volumes params'
+
     @staticmethod
     def __get_config_type(is_default: bool):
         if isinstance:
@@ -50,8 +57,8 @@ class Environment(object):
         # Only check correctness, completeness will be checked when an environment is required
         default = updates.pop('default', {})
         environments = updates.pop('environments', {})
-        self.__validate_params(env=default)
-        [self.__validate_params(env=env) for env in environments.values()]
+        self.__validate_allowed(env=default)
+        [self.__validate_allowed(env=env) for env in environments.values()]
         # Update
         cudaenvs['default'].update(default)
         cudaenvs['environments'].update(environments)
@@ -75,21 +82,17 @@ class Environment(object):
     def dump(self):
         return json.dumps(self.__read_cudaenvs(), indent=4)
 
-    def get_config(self, env_name: str):
+    def get_env(self, env_name: str):
         cudaenvs = self.__read_cudaenvs()
         assert env_name in cudaenvs['environments'].keys(), 'Bad environment name provided'
         environment = cudaenvs['environments'][env_name]
         default = cudaenvs['default']
-        config = {
+        env = {
             'user': {**default.get('user', {}), **environment.get('user', {})},
             'image_name': environment.get('image_name', default.get('image_name', None)),
             'cuda_tag': environment.get('cuda_tag', default.get('cuda_tag', None)),
             'context': environment.get('context', default.get('context', None)),
             'volumes': self.__merge_volumes(environment=environment, default=default)
         }
-        # Check config completenes
-        assert config['user'].keys() == self.__keys_user, 'Missing user params'
-        assert config['image_name'] is not None, 'Missing image_name'
-        assert config['cuda_tag'] is not None, 'Missing cuda_tag'
-        assert config['context'] is not None, 'Missing context'
-        return config
+        self.__validate_completeness(env=env)
+        return env
