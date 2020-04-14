@@ -12,6 +12,7 @@ class Environment(object):
         self.cudaenvs_fn = Path(__file__).parent / 'resources/cudaenvs.cfg'
         self.__keys_main = ['user', 'image_name', 'cuda_tag', 'context', 'volumes']
         self.__keys_user = ['user_name', 'user_id', 'group_name', 'group_id']
+        self.__keys_volume = ['host', 'container']
     
     def __read_cudaenvs(self):
         with self.cudaenvs_fn.open('r') as f:
@@ -24,7 +25,7 @@ class Environment(object):
     def __validate_params(self, env: dict):
         assert all([k in self.__keys_main for k in env.keys()]), f'Bad keys in main level of {env}'
         assert all([k in self.__keys_user for k in env.get('user', {}).keys()]), f'Bad keys in user level of {env}'
-        assert all([isinstance(volume, str) for volume in env.get('volumes', [])]), f'Bad values in volumes level of {env}'
+        assert all([k in self.__keys_volume for volume in env.get('volumes', []) for k in volume.keys()]), f'Bad keys in volumes level of {env}'
     
     @staticmethod
     def __get_config_type(is_default: bool):
@@ -32,6 +33,13 @@ class Environment(object):
             return 'default'
         else:
             return 'environments'
+    
+    def __merge_volumes(self, environment: dict, default: dict):
+        volumes = environment.get('volumes', [])
+        for vd in default.get('volumes', []):
+            if all([vd['container'] != vh['container'] for vh in volumes]):
+                volumes.append(vd)
+        return volumes
     
     def update(self, updates_fn):
         # Read files
@@ -72,16 +80,12 @@ class Environment(object):
         assert env_name in cudaenvs['environments'].keys(), 'Bad environment name provided'
         environment = cudaenvs['environments'][env_name]
         default = cudaenvs['default']
-
-        # TODO
-        # MERGE VOLUMES (avoid duplicate mount points in container, i.e. repetitions of right side)
-
         config = {
             'user': {**default.get('user', {}), **environment.get('user', {})},
             'image_name': environment.get('image_name', default.get('image_name', None)),
             'cuda_tag': environment.get('cuda_tag', default.get('cuda_tag', None)),
             'context': environment.get('context', default.get('context', None)),
-            'volumes': environment.get('volumes', []) + default.get('volumes', [])
+            'volumes': self.__merge_volumes(environment=environment, default=default)
         }
         # Check config completenes
         assert config['user'].keys() == self.__keys_user, 'Missing user params'

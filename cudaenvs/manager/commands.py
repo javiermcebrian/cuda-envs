@@ -29,3 +29,9 @@ def stop(env_name):
 @click.option('--env-name', '-n', type=str, default=None)
 def clean(env_name):
     click.echo('clean')
+
+
+@click.command()
+@click.option('--env-name', '-n', type=str, default=None)
+def remove(env_name):
+    click.echo('remove')
