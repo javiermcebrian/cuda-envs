@@ -3,5 +3,5 @@
 if [[ ! $@ ]]; then
     python -m cudaenvs --help
 else
-    python -m cudaenvs $@
+    python -m cudaenvs "$@"
 fi
